@@ -168,6 +168,9 @@ export class GraphQLSchema {
     this.extensionASTNodes = config.extensionASTNodes;
 
     this.__allowedLegacyNames = config.allowedLegacyNames || [];
+  }
+
+  async init(config: GraphQLSchemaConfig) {
     this._queryType = config.query;
     this._mutationType = config.mutation;
     this._subscriptionType = config.subscription;
@@ -327,7 +330,10 @@ export type GraphQLSchemaConfig = {|
   ...GraphQLSchemaValidationOptions,
 |};
 
-function typeMapReducer(map: TypeMap, type: ?GraphQLType): TypeMap {
+async function typeMapReducer(
+  map: TypeMap,
+  type: ?GraphQLType,
+): Promise<TypeMap> {
   if (!type) {
     return map;
   }
@@ -347,40 +353,42 @@ function typeMapReducer(map: TypeMap, type: ?GraphQLType): TypeMap {
   let reducedMap = map;
 
   if (isUnionType(namedType)) {
-    reducedMap = namedType.getTypes().reduce(typeMapReducer, reducedMap);
+    reducedMap = await namedType.getTypes().reduce(typeMapReducer, reducedMap);
   }
 
   if (isObjectType(namedType)) {
-    reducedMap = namedType.getInterfaces().reduce(typeMapReducer, reducedMap);
+    reducedMap = await namedType
+      .getInterfaces()
+      .reduce(typeMapReducer, reducedMap);
   }
 
   if (isObjectType(namedType) || isInterfaceType(namedType)) {
     for (const field of objectValues(namedType.getFields())) {
       const fieldArgTypes = field.args.map(arg => arg.type);
-      reducedMap = fieldArgTypes.reduce(typeMapReducer, reducedMap);
-      reducedMap = typeMapReducer(reducedMap, field.type);
+      reducedMap = await fieldArgTypes.reduce(typeMapReducer, reducedMap);
+      reducedMap = await typeMapReducer(reducedMap, field.type);
     }
   }
 
   if (isInputObjectType(namedType)) {
     for (const field of objectValues(namedType.getFields())) {
-      reducedMap = typeMapReducer(reducedMap, field.type);
+      reducedMap = await typeMapReducer(reducedMap, field.type);
     }
   }
 
   return reducedMap;
 }
 
-function typeMapDirectiveReducer(
+async function typeMapDirectiveReducer(
   map: TypeMap,
   directive: ?GraphQLDirective,
-): TypeMap {
+): Promise<TypeMap> {
   // Directives are not validated until validateSchema() is called.
   if (!isDirective(directive)) {
     return map;
   }
   return directive.args.reduce(
-    (_map, arg) => typeMapReducer(_map, arg.type),
+    async (_map, arg) => await typeMapReducer(_map, arg.type),
     map,
   );
 }
