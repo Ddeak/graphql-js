@@ -189,10 +189,11 @@ export class GraphQLSchema {
     let typeMap: TypeMap = Object.create(null);
 
     // First by deeply visiting all initial types.
-    typeMap = initialTypes.reduce(typeMapReducer, typeMap);
+    //typeMap = await asyncReduce(initialTypes, typeMapReducer, typeMap);
+    typeMap = await initialTypes.reduce(typeMapReducer, typeMap);
 
     // Then by deeply visiting all directive types.
-    typeMap = this._directives.reduce(typeMapDirectiveReducer, typeMap);
+    //typeMap = await this._directives.reduce(typeMapDirectiveReducer, typeMap);
 
     // Storing the resulting map for reference by the schema.
     this._typeMap = typeMap;
@@ -391,4 +392,14 @@ async function typeMapDirectiveReducer(
     async (_map, arg) => await typeMapReducer(_map, arg.type),
     map,
   );
+}
+
+async function asyncReduce(array, handler, startingValue) {
+  let result = startingValue;
+
+  for (const value of array) {
+    result = await handler(result, value);
+  }
+
+  return result;
 }
