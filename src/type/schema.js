@@ -191,12 +191,10 @@ export class GraphQLSchema {
     let typeMap: TypeMap = Object.create(null);
 
     // First by deeply visiting all initial types.
-    InteractionManager.runAfterInteractions(async () => {
-      typeMap = await initialTypes.reduce(typeMapReducer, typeMap);
+    typeMap = await initialTypes.reduce(typeMapReducer, typeMap);
 
-      // Then by deeply visiting all directive types.
-      typeMap = await this._directives.reduce(typeMapDirectiveReducer, typeMap);
-    });
+    // Then by deeply visiting all directive types.
+    typeMap = await this._directives.reduce(typeMapDirectiveReducer, typeMap);
 
     // Storing the resulting map for reference by the schema.
     this._typeMap = typeMap;
@@ -360,6 +358,8 @@ async function typeMapReducer(
     reducedMap = await namedType.getTypes().reduce(typeMapReducer, reducedMap);
   }
 
+  await afterInteractions();
+
   if (isObjectType(namedType)) {
     reducedMap = await namedType
       .getInterfaces()
@@ -394,5 +394,11 @@ async function typeMapDirectiveReducer(
   return await directive.args.reduce(
     async (_map, arg) => await typeMapReducer(_map, arg.type),
     map,
+  );
+}
+
+async function afterInteractions(): Promise<void> {
+  return new Promise((resolve, reject) =>
+    InteractionManager.runAfterInteractions(resolve()),
   );
 }
